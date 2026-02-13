@@ -1,0 +1,99 @@
+x-logging-default: &logging-default
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: system_sentinel_app
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    logging: *logging-default
+    environment:
+      NETWORK_INTERFACE: ${NETWORK_INTERFACE:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  prometheus:
+    image: prom/prometheus:v3.9.1
+    container_name: system_sentinel_prometheus
+    restart: unless-stopped
+    logging: *logging-default
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    depends_on:
+      - app
+      - blackbox
+      - alertmanager
+
+  grafana:
+    image: grafana/grafana:12.3.2
+    container_name: system_sentinel_grafana
+    restart: unless-stopped
+    logging: *logging-default
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - alertmanager
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    container_name: system_sentinel_alertmanager
+    restart: unless-stopped
+    logging: *logging-default
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml.tmpl:/etc/alertmanager/alertmanager.yml.tmpl:ro
+      - ./alertmanager/entrypoint.sh:/etc/alertmanager/entrypoint.sh:ro
+    entrypoint:
+      - "/bin/sh"
+      - "/etc/alertmanager/entrypoint.sh"
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.26.0
+    container_name: system_sentinel_blackbox
+    restart: unless-stopped
+    logging: *logging-default
+    ports:
+      - "127.0.0.1:9115:9115"
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9115/-/healthy > /dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  prometheus_data:
+  grafana_data:

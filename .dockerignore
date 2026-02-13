@@ -1,0 +1,7 @@
+.git
+.github
+build
+cmake-build-*
+.env
+*.log
+ci-logs
