@@ -28,6 +28,14 @@ jobs:
           chmod +x scripts/check-no-secrets.sh
           scripts/check-no-secrets.sh
 
+      - name: Create CI environment file
+        run: |
+          cat > .env <<'EOF'
+          TELEGRAM_BOT_TOKEN=000000:ci_dummy_token
+          TELEGRAM_CHAT_ID=1
+          NETWORK_INTERFACE=
+          EOF
+
       - name: Run pre-commit checks
         run: |
           sudo apt-get update
