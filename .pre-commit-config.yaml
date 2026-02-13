@@ -1,0 +1,24 @@
+exclude: ^lib/prometheus-client-c/
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+        args: ["--allow-multiple-documents"]
+
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: clang-format (C/C headers)
+        entry: clang-format -i
+        language: system
+        files: \.(c|h)$
+      - id: no-hardcoded-telegram-secrets
+        name: no hardcoded telegram secrets
+        entry: scripts/check-no-secrets.sh
+        language: script
+        pass_filenames: false
