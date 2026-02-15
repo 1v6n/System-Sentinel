@@ -28,6 +28,12 @@ require_buildx() {
 require_tool docker
 require_buildx
 
+if [ ! -d "lib/prometheus-client-c/prom" ] || [ ! -d "lib/prometheus-client-c/promhttp" ]; then
+  echo "ERROR: missing submodule lib/prometheus-client-c."
+  echo "Run: git submodule update --init --recursive"
+  exit 1
+fi
+
 echo "Starting SystemSentinel stack..."
 docker compose up -d --build
 
