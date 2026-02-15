@@ -477,37 +477,37 @@
         {
           "refId": "A",
           "expr": "(1 - avg_over_time(probe_success{job=\"blackbox_ssh\",instance!~\".*:[0-9]+$\"}[5m:5m])) / 0.001",
-          "legendFormat": "SSH 5m burn",
+          "legendFormat": "SSH {{instance}} 5m burn",
           "interval": "5m"
         },
         {
           "refId": "B",
           "expr": "(1 - avg_over_time(probe_success{job=\"blackbox_ssh\",instance!~\".*:[0-9]+$\"}[1h:5m])) / 0.001",
-          "legendFormat": "SSH 1h burn",
+          "legendFormat": "SSH {{instance}} 1h burn",
           "interval": "5m"
         },
         {
           "refId": "C",
           "expr": "(1 - avg_over_time(probe_success{job=\"blackbox_duckdns_http\"}[5m:5m])) / 0.001",
-          "legendFormat": "HTTP 5m burn",
+          "legendFormat": "DuckDNS HTTP 5m burn",
           "interval": "5m"
         },
         {
           "refId": "D",
           "expr": "(1 - avg_over_time(probe_success{job=\"blackbox_duckdns_http\"}[1h:5m])) / 0.001",
-          "legendFormat": "HTTP 1h burn",
+          "legendFormat": "DuckDNS HTTP 1h burn",
           "interval": "5m"
         },
         {
           "refId": "E",
           "expr": "(1 - avg_over_time(probe_success{job=\"blackbox_duckdns_dns\"}[5m:5m])) / 0.001",
-          "legendFormat": "DNS 5m burn",
+          "legendFormat": "DuckDNS DNS 5m burn",
           "interval": "5m"
         },
         {
           "refId": "F",
           "expr": "(1 - avg_over_time(probe_success{job=\"blackbox_duckdns_dns\"}[1h:5m])) / 0.001",
-          "legendFormat": "DNS 1h burn",
+          "legendFormat": "DuckDNS DNS 1h burn",
           "interval": "5m"
         }
       ],
@@ -1223,6 +1223,6 @@
   "timezone": "",
   "title": "SystemSentinel Overview",
   "uid": "systemsentinel-overview",
-  "version": 20,
+  "version": 21,
   "weekStart": ""
 }
