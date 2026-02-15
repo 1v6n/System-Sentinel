@@ -1,14 +1,16 @@
-FROM archlinux:latest AS builder
+FROM debian:bookworm-slim AS builder
 
 WORKDIR /app
 
 # Install build dependencies
-RUN pacman -Syu --noconfirm --needed \
-    base-devel \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    build-essential \
     cmake \
-    libmicrohttpd \
-    pkgconf \
- && pacman -Scc --noconfirm
+    libmicrohttpd-dev \
+    pkg-config \
+    ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copy vendored Prometheus client first to maximize Docker layer cache
 COPY lib/prometheus-client-c /app/lib/prometheus-client-c
