@@ -28,6 +28,9 @@ cp .env.example .env
 ```
 
 Edit `.env` with your Telegram bot token and chat ID.
+Set `SSH_TARGETS` to one or more SSH endpoints (comma-separated).
+Use `Friendly Name=IP:PORT` to show aliases in Grafana/alerts. Example:
+`Netbird Main=100.124.161.192:22,Backup SSH=10.0.0.15:22`.
 
 Prerequisite: Docker Buildx plugin installed (`docker buildx version` must work).
 
@@ -68,8 +71,9 @@ Container build strategy:
 - `src/`, `include/`: C source and headers
 - `lib/prometheus-client-c/`: git submodule to fork `https://github.com/1v6n/prometheus-client-c` (VERSION `0.1.3`)
 - `docker-compose.yml`: full stack orchestration
-- `prometheus/prometheus.yml`: scrape and alertmanager wiring
-- `prometheus/alert.rules.yml`: alert rules
+- `prometheus/prometheus.yml.tmpl`: Prometheus config template
+- `prometheus/alert.rules.yml.tmpl`: alert rules template
+- `prometheus/entrypoint.sh`: runtime template renderer for Prometheus
 - `blackbox/blackbox.yml`: probe modules
 - `alertmanager/alertmanager.yml.tmpl`: Alertmanager template (runtime-rendered from `.env`)
 - `.pre-commit-config.yaml`: local commit quality gates
@@ -86,6 +90,12 @@ Network interface behavior:
 
 - `NETWORK_INTERFACE` empty: auto-detect first non-loopback interface
 - `NETWORK_INTERFACE` set: force that interface explicitly
+
+SSH probe behavior:
+
+- `SSH_TARGETS` controls one or more blackbox SSH targets (`IP:PORT` or `Friendly Name=IP:PORT`, comma-separated)
+- `SSH_TARGET` is still accepted as backward-compatible fallback
+- The Grafana SSH availability panel displays this target from the `instance` label
 
 ## Access Points
 
@@ -112,7 +122,7 @@ Prometheus probe checks:
 ```bash
 curl -sS "http://localhost:9090/api/v1/query?query=probe_success{job=\"blackbox_duckdns_http\"}"
 curl -sS "http://localhost:9090/api/v1/query?query=probe_success{job=\"blackbox_duckdns_dns\"}"
-curl -sS "http://localhost:9090/api/v1/query?query=probe_success{job=\"blackbox_ssh_netbird\"}"
+curl -sS "http://localhost:9090/api/v1/query?query=probe_success{job=\"blackbox_ssh\"}"
 ```
 
 Expected probe value when healthy: `1`.
@@ -131,6 +141,42 @@ Grafana provisioning is automatic:
 1. Datasource `Prometheus` is preconfigured (`grafana/provisioning/datasources/datasource.yml`)
 2. Dashboard provider loads dashboards from `grafana/dashboards/`
 3. Custom dashboard `SystemSentinel Overview` is auto-imported at startup
+4. SSH labels use `instance`; configure friendly aliases through `SSH_TARGETS` with `Friendly Name=IP:PORT`
+
+Dashboard layout is operations-first and symmetric:
+
+1. Top row (KPIs): `Endpoint Uptime % (24h)`, `SSH Uptime % (24h)`, `Error Budget Remaining (30d, 99.9% SLO)`
+2. Diagnosis rows: state timeline/history + burn rate + SSH current status
+3. Incident rows: `SSH Targets Down (Now)`, `Alerts`, and full-width `Firing Alert Details`
+4. Bottom rows: host internals (CPU, memory, disk, network)
+
+Panel-by-panel explanation:
+
+1. `Endpoint Uptime % (24h)`: 24h availability for SSH aliases + DuckDNS HTTP/DNS.
+2. `SSH Uptime % (24h)`: 24h availability for SSH alias targets only.
+3. `Error Budget Remaining (30d, 99.9% SLO)`: remaining SLO budget per endpoint in the last 30 days.
+4. `Availability State Timeline`: binary UP/DOWN timeline by endpoint.
+5. `Availability Status History`: condensed status history view for flapping analysis.
+6. `SLO Burn Rate (99.9% target)`: short/long window burn rate to detect fast budget consumption.
+7. `SSH Current Status (Now)`: current UP/DOWN for SSH aliases.
+8. `SSH Targets Down (Now)`: count of SSH targets currently down.
+9. `Alerts`: number of firing alerts (shows `No alerts` when zero).
+10. `Firing Alert Details`: active alert labels/annotations table.
+11. `CPU Usage`: host CPU percentage.
+12. `Memory Usage`: host RAM percentage.
+13. `Disk Usage`: filesystem usage percentage.
+14. `Available Memory`: available RAM in MB.
+15. `Disk I/O Activity`: I/O activity rate.
+16. `Network Error Rates`: RX/TX/dropped error rates.
+17. `Network Throughput`: RX/TX bytes per second.
+18. `Network Total Traffic`: cumulative RX/TX bytes.
+
+Rendering and query notes:
+
+- Uptime/budget gauges use fixed bounds (`min=0`, `max=1`) and threshold colors.
+- Uptime gauges use 2 decimals and threshold ranges (`<95%` red, `95-99%` yellow, `>=99%` green).
+- Heavy panels use `interval: 5m` and capped `maxDataPoints` to avoid oversampling warnings.
+- SSH panels filter out legacy raw `IP:PORT` labels using `instance!~".*:[0-9]+$"`.
 
 ## Pre-commit (clang-format + checks)
 
