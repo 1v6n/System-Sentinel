@@ -30,15 +30,18 @@ services:
     container_name: system_sentinel_prometheus
     restart: unless-stopped
     logging: *logging-default
+    environment:
+      SSH_TARGETS: ${SSH_TARGETS}
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
       - prometheus_data:/prometheus
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
+      - ./prometheus/prometheus.yml.tmpl:/etc/prometheus/prometheus.yml.tmpl:ro
+      - ./prometheus/alert.rules.yml.tmpl:/etc/prometheus/alert.rules.yml.tmpl:ro
+      - ./prometheus/entrypoint.sh:/etc/prometheus/entrypoint.sh:ro
+    entrypoint:
+      - "/bin/sh"
+      - "/etc/prometheus/entrypoint.sh"
     depends_on:
       - app
       - blackbox

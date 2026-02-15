@@ -19,14 +19,14 @@ groups:
           summary: "DuckDNS DNS resolution failed"
           description: "DNS probe for myadguardzi.duckdns.org has been failing for 5 minutes."
 
-      - alert: NetbirdSshDown
-        expr: probe_success{job="blackbox_ssh_netbird"} == 0
+      - alert: SshTargetDown
+        expr: probe_success{job="blackbox_ssh"} == 0
         for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "SSH down on Netbird IP"
-          description: "TCP probe to 100.124.161.192:22 has been failing for 5 minutes."
+          summary: "SSH target down"
+          description: "TCP probe to {{ $labels.instance }} has been failing for 5 minutes."
 
       - alert: TargetDown
         expr: up == 0

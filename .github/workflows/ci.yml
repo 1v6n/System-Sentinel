@@ -33,6 +33,7 @@ jobs:
           cat > .env <<'EOF'
           TELEGRAM_BOT_TOKEN=000000:ci_dummy_token
           TELEGRAM_CHAT_ID=1
+          SSH_TARGETS=100.124.161.192:22
           NETWORK_INTERFACE=
           EOF
 

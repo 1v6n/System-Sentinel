@@ -11,17 +11,20 @@ scrape_configs:
     static_configs:
       - targets: ["app:8000"]
 
-  - job_name: "blackbox_ssh_netbird"
+  - job_name: "blackbox_ssh"
     metrics_path: /probe
     params:
       module: [tcp_connect]
     static_configs:
-      - targets: ["100.124.161.192:22"]
+__SSH_STATIC_CONFIGS__
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
-      - source_labels: [__param_target]
+      # Keep a friendly static label when provided; otherwise fallback to target.
+      - source_labels: [instance, __param_target]
+        regex: ^;(.*)$
         target_label: instance
+        replacement: $1
       - target_label: __address__
         replacement: blackbox:9115
 
