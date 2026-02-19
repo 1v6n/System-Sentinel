@@ -84,6 +84,9 @@ services:
     container_name: system_sentinel_blackbox
     restart: unless-stopped
     logging: *logging-default
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     ports:
       - "${MONITOR_BIND_ADDR:-127.0.0.1}:9115:9115"
     volumes:
