@@ -139,7 +139,7 @@ curl -sS http://localhost:9115/-/healthy
 Prometheus probe checks:
 
 ```bash
-curl -sS "http://localhost:9090/api/v1/query?query=probe_success{job=\"blackbox_duckdns_http\"}"
+curl -sS "http://localhost:9090/api/v1/query?query=probe_success{job=\"blackbox_duckdns_https\"}"
 curl -sS "http://localhost:9090/api/v1/query?query=probe_success{job=\"blackbox_duckdns_dns\"}"
 curl -sS "http://localhost:9090/api/v1/query?query=probe_success{job=\"blackbox_ssh\"}"
 ```
@@ -171,7 +171,7 @@ Dashboard layout is operations-first and symmetric:
 
 Panel-by-panel explanation:
 
-1. `Endpoint Uptime % (24h)`: 24h availability for SSH aliases + DuckDNS HTTP/DNS.
+1. `Endpoint Uptime % (24h)`: 24h availability for SSH aliases + DuckDNS HTTPS/DNS.
 2. `SSH Uptime % (24h)`: 24h availability for SSH alias targets only.
 3. `Error Budget Remaining (30d, 99.9% SLO)`: remaining SLO budget per endpoint in the last 30 days.
 4. `Availability State Timeline`: binary UP/DOWN timeline by endpoint.

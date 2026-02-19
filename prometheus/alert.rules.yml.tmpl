@@ -1,13 +1,13 @@
 groups:
   - name: system_sentinel_availability
     rules:
-      - alert: DuckDNSHttpDown
-        expr: probe_success{job="blackbox_duckdns_http"} == 0
+      - alert: DuckDNSHttpsDown
+        expr: probe_success{job="blackbox_duckdns_https"} == 0
         for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "DuckDNS HTTP check failed"
+          summary: "DuckDNS HTTPS check failed"
           description: "HTTPS probe to myadguardzi.duckdns.org has been failing for 5 minutes."
 
       - alert: DuckDNSDnsDown

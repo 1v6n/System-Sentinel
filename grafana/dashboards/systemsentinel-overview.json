@@ -46,8 +46,8 @@
         },
         {
           "refId": "B",
-          "expr": "avg_over_time(probe_success{job=\"blackbox_duckdns_http\"}[24h])",
-          "legendFormat": "DuckDNS HTTP",
+          "expr": "avg_over_time(probe_success{job=\"blackbox_duckdns_https\"}[24h])",
+          "legendFormat": "DuckDNS HTTPS",
           "interval": "5m"
         },
         {
@@ -240,8 +240,8 @@
         },
         {
           "refId": "B",
-          "expr": "clamp_min(clamp_max(1 - ((1 - avg_over_time(probe_success{job=\"blackbox_duckdns_http\"}[30d])) / 0.001), 1), 0)",
-          "legendFormat": "DuckDNS HTTP",
+          "expr": "clamp_min(clamp_max(1 - ((1 - avg_over_time(probe_success{job=\"blackbox_duckdns_https\"}[30d])) / 0.001), 1), 0)",
+          "legendFormat": "DuckDNS HTTPS",
           "interval": "5m"
         },
         {
@@ -312,8 +312,8 @@
         },
         {
           "refId": "B",
-          "expr": "probe_success{job=\"blackbox_duckdns_http\"}",
-          "legendFormat": "DuckDNS HTTP",
+          "expr": "probe_success{job=\"blackbox_duckdns_https\"}",
+          "legendFormat": "DuckDNS HTTPS",
           "interval": "5m"
         },
         {
@@ -399,8 +399,8 @@
         },
         {
           "refId": "B",
-          "expr": "probe_success{job=\"blackbox_duckdns_http\"}",
-          "legendFormat": "DuckDNS HTTP",
+          "expr": "probe_success{job=\"blackbox_duckdns_https\"}",
+          "legendFormat": "DuckDNS HTTPS",
           "interval": "5m"
         },
         {
@@ -488,14 +488,14 @@
         },
         {
           "refId": "C",
-          "expr": "(1 - avg_over_time(probe_success{job=\"blackbox_duckdns_http\"}[5m:5m])) / 0.001",
-          "legendFormat": "DuckDNS HTTP 5m burn",
+          "expr": "(1 - avg_over_time(probe_success{job=\"blackbox_duckdns_https\"}[5m:5m])) / 0.001",
+          "legendFormat": "DuckDNS HTTPS 5m burn",
           "interval": "5m"
         },
         {
           "refId": "D",
-          "expr": "(1 - avg_over_time(probe_success{job=\"blackbox_duckdns_http\"}[1h:5m])) / 0.001",
-          "legendFormat": "DuckDNS HTTP 1h burn",
+          "expr": "(1 - avg_over_time(probe_success{job=\"blackbox_duckdns_https\"}[1h:5m])) / 0.001",
+          "legendFormat": "DuckDNS HTTPS 1h burn",
           "interval": "5m"
         },
         {
@@ -1223,6 +1223,6 @@
   "timezone": "",
   "title": "SystemSentinel Overview",
   "uid": "systemsentinel-overview",
-  "version": 21,
+  "version": 22,
   "weekStart": ""
 }

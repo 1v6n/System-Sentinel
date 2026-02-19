@@ -28,7 +28,7 @@ __SSH_STATIC_CONFIGS__
       - target_label: __address__
         replacement: blackbox:9115
 
-  - job_name: "blackbox_duckdns_http"
+  - job_name: "blackbox_duckdns_https"
     metrics_path: /probe
     params:
       module: [http_2xx]
