@@ -67,6 +67,9 @@ services:
     container_name: system_sentinel_alertmanager
     restart: unless-stopped
     logging: *logging-default
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
