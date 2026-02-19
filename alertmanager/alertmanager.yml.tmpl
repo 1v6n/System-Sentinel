@@ -13,16 +13,17 @@ receivers:
     telegram_configs:
       - bot_token: "__TELEGRAM_BOT_TOKEN__"
         chat_id: __TELEGRAM_CHAT_ID__
+        parse_mode: Markdown
         send_resolved: true
         message: |-
-          *{{ .Status | toUpper }}* - {{ .CommonLabels.alertname }}
-          *Severity:* {{ .CommonLabels.severity }}
-          *Active alerts:* {{ len .Alerts }}
+          *{{ .Status | toUpper }}* - `{{ reReplaceAll "`" "'" .CommonLabels.alertname }}`
+          *Severity:* `{{ reReplaceAll "`" "'" .CommonLabels.severity }}`
+          *Active alerts:* `{{ len .Alerts }}`
           {{ range .Alerts }}
           ---
-          *Target:* `{{ or .Labels.instance "n/a" }}`
-          *Job:* `{{ or .Labels.job "n/a" }}`
-          *Summary:* {{ .Annotations.summary }}
-          *Description:* {{ .Annotations.description }}
+          *Target:* `{{ reReplaceAll "`" "'" (or .Labels.instance "n/a") }}`
+          *Job:* `{{ reReplaceAll "`" "'" (or .Labels.job "n/a") }}`
+          *Summary:* `{{ reReplaceAll "`" "'" .Annotations.summary }}`
+          *Description:* `{{ reReplaceAll "`" "'" .Annotations.description }}`
           *Started:* `{{ .StartsAt }}`
           {{ end }}
