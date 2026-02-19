@@ -13,7 +13,6 @@ receivers:
     telegram_configs:
       - bot_token: "__TELEGRAM_BOT_TOKEN__"
         chat_id: __TELEGRAM_CHAT_ID__
-        parse_mode: Markdown
         send_resolved: true
         message: |-
           *{{ .Status | toUpper }}* - {{ .CommonLabels.alertname }}
