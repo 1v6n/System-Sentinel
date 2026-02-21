@@ -2,12 +2,48 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build-and-smoke:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      heavy: ${{ steps.filter.outputs.heavy }}
+      config: ${{ steps.filter.outputs.config }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            heavy:
+              - 'src/**'
+              - 'include/**'
+              - 'Dockerfile'
+              - 'docker-compose.yml'
+              - 'prometheus/**'
+              - 'alertmanager/**'
+              - 'blackbox/**'
+              - 'scripts/**'
+              - 'CMakeLists.txt'
+              - '.github/workflows/**'
+              - '.gitlab-ci.yml'
+            config:
+              - 'prometheus/**'
+              - 'alertmanager/**'
+              - 'blackbox/**'
+              - 'docker-compose.yml'
+              - 'scripts/**'
+
+  lint:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -28,14 +64,13 @@ jobs:
           chmod +x scripts/check-no-secrets.sh
           scripts/check-no-secrets.sh
 
-      - name: Create CI environment file
-        run: |
-          cat > .env <<'EOF'
-          TELEGRAM_BOT_TOKEN=000000:ci_dummy_token
-          TELEGRAM_CHAT_ID=1
-          SSH_TARGETS=100.124.161.192:22
-          NETWORK_INTERFACE=
-          EOF
+      - name: Cache pre-commit
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pre-commit
+            ~/.cache/pip
+          key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Run pre-commit checks
         run: |
@@ -43,11 +78,138 @@ jobs:
           sudo apt-get install -y pre-commit clang-format
           pre-commit run --all-files
 
+  config-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint, changes]
+    if: needs.changes.outputs.config == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Prometheus and Alertmanager configs
+        run: |
+          docker pull prom/prometheus:v3.9.1
+          docker pull prom/alertmanager:v0.28.0
+
+          cat > /tmp/ssh_static_configs.yml <<'EOF'
+                - targets: ["100.124.161.192:22"]
+                  labels:
+                    instance: "ci_ssh"
+          EOF
+
+          awk '
+            /__SSH_STATIC_CONFIGS__/ {
+              while ((getline line < cfg) > 0) print line
+              close(cfg)
+              next
+            }
+            { print }
+          ' cfg="/tmp/ssh_static_configs.yml" prometheus/prometheus.yml.tmpl > /tmp/prometheus.yml
+
+          sed -i "s|__BLACKBOX_ADDRESS__|blackbox:9115|g" /tmp/prometheus.yml
+          docker run --rm -v /tmp/prometheus.yml:/tmp/prometheus.yml prom/prometheus:v3.9.1 \
+            promtool check config /tmp/prometheus.yml
+          docker run --rm -v "$PWD/prometheus/alert.rules.yml.tmpl:/tmp/alert.rules.yml" prom/prometheus:v3.9.1 \
+            promtool check rules /tmp/alert.rules.yml
+
+          sed \
+            -e 's|__TELEGRAM_BOT_TOKEN__|000000:ci_dummy_token|g' \
+            -e 's|__TELEGRAM_CHAT_ID__|1|g' \
+            alertmanager/alertmanager.yml.tmpl > /tmp/alertmanager.yml
+          docker run --rm --entrypoint /bin/amtool -v /tmp/alertmanager.yml:/tmp/alertmanager.yml \
+            prom/alertmanager:v0.28.0 check-config /tmp/alertmanager.yml
+
+  native-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [lint, changes]
+    if: needs.changes.outputs.heavy == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config libmicrohttpd-dev
+
+      - name: Build vendored prom libs and app natively
+        run: |
+          cmake -S lib/prometheus-client-c/prom -B /tmp/build-prom -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake --build /tmp/build-prom --config Release -j"$(nproc)"
+          sudo cmake --install /tmp/build-prom
+          cmake -S lib/prometheus-client-c/promhttp -B /tmp/build-promhttp -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake --build /tmp/build-promhttp --config Release -j"$(nproc)"
+          sudo cmake --install /tmp/build-promhttp
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release -j"$(nproc)"
+
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: lint
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install docs dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+
+      - name: Run Doxygen check
+        run: |
+          chmod +x scripts/check-docs.sh
+          scripts/check-docs.sh
+
+      - name: Upload Doxygen errors
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: doxygen-errors
+          path: dox_errors.txt
+
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [lint, docs, changes]
+    if: needs.changes.outputs.heavy == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Validate submodules are present
+        run: |
+          test -d lib/prometheus-client-c/prom
+          test -d lib/prometheus-client-c/promhttp
+
+      - name: Create CI environment file
+        run: |
+          cat > .env <<'EOF'
+          TELEGRAM_BOT_TOKEN=000000:ci_dummy_token
+          TELEGRAM_CHAT_ID=1
+          SSH_TARGETS=100.124.161.192:22
+          NETWORK_INTERFACE=
+          MONITOR_BIND_ADDR=127.0.0.1
+          EOF
+
       - name: Validate Compose config
         run: docker compose config
 
       - name: Build and start stack
-        run: docker compose up -d --build
+        run: docker compose up -d --build --remove-orphans
 
       - name: Initialize app metrics selection
         run: |
