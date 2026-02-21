@@ -17,7 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       heavy: ${{ steps.filter.outputs.heavy }}
-      config: ${{ steps.filter.outputs.config }}
     steps:
       - uses: actions/checkout@v4
       - id: filter
@@ -36,13 +35,6 @@ jobs:
               - 'CMakeLists.txt'
               - '.github/workflows/**'
               - '.gitlab-ci.yml'
-            config:
-              - 'prometheus/**'
-              - 'alertmanager/**'
-              - 'blackbox/**'
-              - 'docker-compose.yml'
-              - 'scripts/**'
-
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -81,8 +73,7 @@ jobs:
   config-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [lint, changes]
-    if: needs.changes.outputs.config == 'true'
+    needs: [lint]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
