@@ -9,6 +9,9 @@ set -euo pipefail
 # - Runs post-install health validation
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMPOSE_FILE="${ROOT_DIR}/docker-compose.yml"
+ENV_FILE="${ROOT_DIR}/.env"
+ENV_EXAMPLE_FILE="${ROOT_DIR}/.env.example"
 cd "${ROOT_DIR}"
 
 DRY_RUN=0
@@ -88,7 +91,7 @@ on_error() {
 }
 trap 'on_error $LINENO' ERR
 
-if [ ! -f "docker-compose.yml" ]; then
+if [ ! -f "${COMPOSE_FILE}" ]; then
   log_error "run this script from the SystemSentinel repository."
   exit 1
 fi
@@ -181,31 +184,31 @@ pick_docker_cmd() {
 }
 
 prepare_env() {
-  if [ ! -f .env ]; then
-    cp .env.example .env
+  if [ ! -f "${ENV_FILE}" ]; then
+    cp "${ENV_EXAMPLE_FILE}" "${ENV_FILE}"
   fi
 
-  [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && set_env_var "TELEGRAM_BOT_TOKEN" "${TELEGRAM_BOT_TOKEN}" .env
-  [ -n "${TELEGRAM_CHAT_ID:-}" ] && set_env_var "TELEGRAM_CHAT_ID" "${TELEGRAM_CHAT_ID}" .env
-  [ -n "${SSH_TARGETS:-}" ] && set_env_var "SSH_TARGETS" "${SSH_TARGETS}" .env
-  [ -n "${NETWORK_INTERFACE:-}" ] && set_env_var "NETWORK_INTERFACE" "${NETWORK_INTERFACE}" .env
+  [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && set_env_var "TELEGRAM_BOT_TOKEN" "${TELEGRAM_BOT_TOKEN}" "${ENV_FILE}"
+  [ -n "${TELEGRAM_CHAT_ID:-}" ] && set_env_var "TELEGRAM_CHAT_ID" "${TELEGRAM_CHAT_ID}" "${ENV_FILE}"
+  [ -n "${SSH_TARGETS:-}" ] && set_env_var "SSH_TARGETS" "${SSH_TARGETS}" "${ENV_FILE}"
+  [ -n "${NETWORK_INTERFACE:-}" ] && set_env_var "NETWORK_INTERFACE" "${NETWORK_INTERFACE}" "${ENV_FILE}"
 
   if [ -z "${MONITOR_BIND_ADDR:-}" ]; then
     if ip -4 addr show wt0 >/dev/null 2>&1; then
       NB_IP="$(ip -4 -o addr show wt0 | awk '{print $4}' | cut -d/ -f1 | head -n1)"
       if [ -n "${NB_IP}" ]; then
-        set_env_var "MONITOR_BIND_ADDR" "${NB_IP}" .env
+        set_env_var "MONITOR_BIND_ADDR" "${NB_IP}" "${ENV_FILE}"
       fi
     fi
   else
-    set_env_var "MONITOR_BIND_ADDR" "${MONITOR_BIND_ADDR}" .env
+    set_env_var "MONITOR_BIND_ADDR" "${MONITOR_BIND_ADDR}" "${ENV_FILE}"
   fi
 
   local bot chat ssh bind_addr
-  bot="$(get_env_var TELEGRAM_BOT_TOKEN .env || true)"
-  chat="$(get_env_var TELEGRAM_CHAT_ID .env || true)"
-  ssh="$(get_env_var SSH_TARGETS .env || true)"
-  bind_addr="$(get_env_var MONITOR_BIND_ADDR .env || true)"
+  bot="$(get_env_var TELEGRAM_BOT_TOKEN "${ENV_FILE}" || true)"
+  chat="$(get_env_var TELEGRAM_CHAT_ID "${ENV_FILE}" || true)"
+  ssh="$(get_env_var SSH_TARGETS "${ENV_FILE}" || true)"
+  bind_addr="$(get_env_var MONITOR_BIND_ADDR "${ENV_FILE}" || true)"
 
   if [ -z "${bot}" ] || [[ "${bot}" == replace_with_* ]]; then
     log_error "TELEGRAM_BOT_TOKEN is not configured in .env"
@@ -226,7 +229,7 @@ prepare_env() {
 
 post_install_validate() {
   local bind_addr
-  bind_addr="$(get_env_var MONITOR_BIND_ADDR .env || true)"
+  bind_addr="$(get_env_var MONITOR_BIND_ADDR "${ENV_FILE}" || true)"
   [ -z "${bind_addr}" ] && bind_addr="127.0.0.1"
 
   if [ "${DRY_RUN}" -eq 1 ]; then
@@ -287,13 +290,13 @@ fi
 log_info "Using Docker command: ${DOCKER_CMD}"
 log_info "Starting SystemSentinel stack"
 # shellcheck disable=SC2086
-run_sh "${DOCKER_CMD} compose up -d --build"
+run_sh "${DOCKER_CMD} compose -f \"${COMPOSE_FILE}\" --project-directory \"${ROOT_DIR}\" up -d --build"
 
 log_info "Initializing exporter FIFO metrics"
 METRICS="${SYSTEM_SENTINEL_METRICS:-cpu_usage_percentage,memory_usage_percentage,disk_usage_percentage,available_memory_mb,io_time_ms,rx_bytes_total,tx_bytes_total,rx_errors_total,tx_errors_total,dropped_packets_total}"
 if [ "${DRY_RUN}" -eq 0 ]; then
   TRIES=30
-  until ${DOCKER_CMD} compose exec -T app sh -lc 'test -p /tmp/monitor_fifo' >/dev/null 2>&1; do
+  until ${DOCKER_CMD} compose -f "${COMPOSE_FILE}" --project-directory "${ROOT_DIR}" exec -T app sh -lc 'test -p /tmp/monitor_fifo' >/dev/null 2>&1; do
     TRIES=$((TRIES - 1))
     if [ "${TRIES}" -le 0 ]; then
       log_error "timed out waiting for /tmp/monitor_fifo"
@@ -301,14 +304,14 @@ if [ "${DRY_RUN}" -eq 0 ]; then
     fi
     sleep 2
   done
-  ${DOCKER_CMD} compose exec -T app sh -lc "printf '%s' \"${METRICS}\" > /tmp/monitor_fifo"
+  ${DOCKER_CMD} compose -f "${COMPOSE_FILE}" --project-directory "${ROOT_DIR}" exec -T app sh -lc "printf '%s' \"${METRICS}\" > /tmp/monitor_fifo"
 else
   log_info "[dry-run] would initialize FIFO with metrics: ${METRICS}"
 fi
 
 post_install_validate
 
-BIND_ADDR="$(get_env_var MONITOR_BIND_ADDR .env || true)"
+BIND_ADDR="$(get_env_var MONITOR_BIND_ADDR "${ENV_FILE}" || true)"
 [ -z "${BIND_ADDR}" ] && BIND_ADDR="127.0.0.1"
 
 log_info "Deployment complete"
