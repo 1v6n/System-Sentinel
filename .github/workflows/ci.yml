@@ -108,10 +108,10 @@ jobs:
           ' cfg="/tmp/ssh_static_configs.yml" prometheus/prometheus.yml.tmpl > /tmp/prometheus.yml
 
           sed -i "s|__BLACKBOX_ADDRESS__|blackbox:9115|g" /tmp/prometheus.yml
-          docker run --rm -v /tmp/prometheus.yml:/tmp/prometheus.yml prom/prometheus:v3.9.1 \
-            promtool check config /tmp/prometheus.yml
-          docker run --rm -v "$PWD/prometheus/alert.rules.yml.tmpl:/tmp/alert.rules.yml" prom/prometheus:v3.9.1 \
-            promtool check rules /tmp/alert.rules.yml
+          docker run --rm --entrypoint /bin/promtool -v /tmp/prometheus.yml:/tmp/prometheus.yml prom/prometheus:v3.9.1 \
+            check config /tmp/prometheus.yml
+          docker run --rm --entrypoint /bin/promtool -v "$PWD/prometheus/alert.rules.yml.tmpl:/tmp/alert.rules.yml" prom/prometheus:v3.9.1 \
+            check rules /tmp/alert.rules.yml
 
           sed \
             -e 's|__TELEGRAM_BOT_TOKEN__|000000:ci_dummy_token|g' \
