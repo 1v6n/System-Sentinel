@@ -47,7 +47,7 @@ __SSH_STATIC_CONFIGS__
     params:
       module: [dns_udp]
     static_configs:
-      - targets: ["1.1.1.1:53"]
+      - targets: ["__DNS_PROBE_TARGET__"]
         labels:
           instance: "myadguardzi.duckdns.org"
     relabel_configs:

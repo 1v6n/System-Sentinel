@@ -97,7 +97,7 @@ if [ ! -f "${COMPOSE_FILE}" ]; then
 fi
 
 if ! command -v apt-get >/dev/null 2>&1; then
-  log_error "this installer currently supports Ubuntu/Debian (apt-based systems)."
+  log_error "this installer currently supports Ubuntu/Debian/Raspberry Pi OS (apt-based systems)."
   exit 1
 fi
 
@@ -155,16 +155,75 @@ install_docker() {
   run_cmd ${SUDO} apt-get update
   run_cmd ${SUDO} apt-get install -y ca-certificates curl gnupg lsb-release
 
+  . /etc/os-release
+  local distro_id docker_repo_id arch codename docker_codename
+  distro_id="${ID:-}"
+  docker_repo_id="${distro_id}"
+  arch="$(dpkg --print-architecture)"
+  codename="${VERSION_CODENAME:-}"
+  if [ -z "${codename}" ]; then
+    codename="$(lsb_release -cs 2>/dev/null || true)"
+  fi
+  if [ -z "${codename}" ] && [ -n "${DEBIAN_CODENAME:-}" ]; then
+    codename="${DEBIAN_CODENAME}"
+  fi
+  if [ -z "${codename}" ] && [ -n "${UBUNTU_CODENAME:-}" ]; then
+    codename="${UBUNTU_CODENAME}"
+  fi
+
+  case "${distro_id}" in
+    ubuntu|debian)
+      ;;
+    raspbian)
+      docker_repo_id="raspbian"
+      ;;
+    *)
+      log_error "unsupported distro '${distro_id}'. This installer supports Ubuntu/Debian/Raspberry Pi OS."
+      exit 1
+      ;;
+  esac
+
+  if [ -z "${codename}" ]; then
+    log_error "could not detect distro codename from /etc/os-release"
+    exit 1
+  fi
+
+  docker_codename=""
+  if curl -fsSI "https://download.docker.com/linux/${docker_repo_id}/dists/${codename}/Release" >/dev/null 2>&1; then
+    docker_codename="${codename}"
+  else
+    for candidate in \
+      $(
+        if [ "${distro_id}" = "ubuntu" ]; then
+          printf '%s\n' noble jammy focal
+        elif [ "${distro_id}" = "raspbian" ]; then
+          printf '%s\n' bookworm bullseye buster
+        else
+          printf '%s\n' bookworm bullseye
+        fi
+      ); do
+      if curl -fsSI "https://download.docker.com/linux/${docker_repo_id}/dists/${candidate}/Release" >/dev/null 2>&1; then
+        docker_codename="${candidate}"
+        break
+      fi
+    done
+  fi
+
+  if [ -z "${docker_codename}" ]; then
+    log_error "no supported Docker APT repo found for distro='${distro_id}' codename='${codename}'"
+    exit 1
+  fi
+  if [ "${docker_codename}" != "${codename}" ]; then
+    log_warn "Docker repo does not support '${codename}' yet; using '${docker_codename}'"
+  fi
+
   run_cmd ${SUDO} install -m 0755 -d /etc/apt/keyrings
   if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
-    run_sh "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | ${SUDO} gpg --dearmor -o /etc/apt/keyrings/docker.gpg"
+    run_sh "curl -fsSL https://download.docker.com/linux/${docker_repo_id}/gpg | ${SUDO} gpg --dearmor -o /etc/apt/keyrings/docker.gpg"
     run_cmd ${SUDO} chmod a+r /etc/apt/keyrings/docker.gpg
   fi
 
-  . /etc/os-release
-  ARCH="$(dpkg --print-architecture)"
-  CODENAME="${VERSION_CODENAME:-$(lsb_release -cs)}"
-  run_sh "echo 'deb [arch=${ARCH} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${CODENAME} stable' | ${SUDO} tee /etc/apt/sources.list.d/docker.list >/dev/null"
+  run_sh "echo 'deb [arch=${arch} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/${docker_repo_id} ${docker_codename} stable' | ${SUDO} tee /etc/apt/sources.list.d/docker.list >/dev/null"
 
   run_cmd ${SUDO} apt-get update
   run_cmd ${SUDO} apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin

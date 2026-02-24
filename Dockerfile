@@ -3,8 +3,8 @@ FROM debian:bookworm-slim AS builder
 WORKDIR /app
 
 # Install build dependencies
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
+RUN apt-get -o Acquire::Retries=5 -o Acquire::ForceIPv4=true update \
+ && apt-get -o Acquire::Retries=5 -o Acquire::ForceIPv4=true install -y --no-install-recommends \
     build-essential \
     cmake \
     libmicrohttpd-dev \
@@ -46,8 +46,8 @@ FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
 # Install only runtime deps
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
+RUN apt-get -o Acquire::Retries=5 -o Acquire::ForceIPv4=true update \
+ && apt-get -o Acquire::Retries=5 -o Acquire::ForceIPv4=true install -y --no-install-recommends \
     libmicrohttpd12 \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*

@@ -40,8 +40,51 @@ fi
 
 DOCKER_COMPOSE=(docker compose -f "${COMPOSE_FILE}" --project-directory "${REPO_ROOT}")
 
+compose_project_name() {
+  local name
+  name="$("${DOCKER_COMPOSE[@]}" config --format json 2>/dev/null | sed -n 's/^[[:space:]]*"name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+  if [ -z "${name}" ]; then
+    name="$(basename "${REPO_ROOT}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-')"
+    name="${name%-}"
+  fi
+  printf '%s' "${name}"
+}
+
+is_dns_resolution_error() {
+  local logfile="$1"
+  grep -qiE \
+    'Temporary failure resolving|failed to fetch .* InRelease|lookup .*:53|no such host|could not resolve host' \
+    "${logfile}"
+}
+
+start_stack_with_fallback() {
+  local up_log project_name app_image
+  up_log="$(mktemp /tmp/systemsentinel-up.XXXXXX.log)"
+
+  if "${DOCKER_COMPOSE[@]}" up -d --build 2>&1 | tee "${up_log}"; then
+    rm -f "${up_log}"
+    return 0
+  fi
+
+  if ! is_dns_resolution_error "${up_log}"; then
+    echo "ERROR: docker compose up failed. Showing last log lines:"
+    tail -n 60 "${up_log}"
+    rm -f "${up_log}"
+    return 1
+  fi
+
+  echo "WARN: detected Docker build DNS resolution failure."
+  echo "WARN: retrying app image build with host network (BuildKit disabled)."
+  project_name="$(compose_project_name)"
+  app_image="${project_name}-app"
+
+  DOCKER_BUILDKIT=0 docker build --network=host -f "${REPO_ROOT}/Dockerfile" -t "${app_image}" "${REPO_ROOT}"
+  "${DOCKER_COMPOSE[@]}" up -d --no-build
+  rm -f "${up_log}"
+}
+
 echo "Starting SystemSentinel stack..."
-"${DOCKER_COMPOSE[@]}" up -d --build
+start_stack_with_fallback
 
 echo "Waiting for app container to accept FIFO initialization..."
 i=1

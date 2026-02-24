@@ -3,6 +3,7 @@ set -eu
 
 SSH_TARGETS_RAW="${SSH_TARGETS:-${SSH_TARGET:-}}"
 : "${SSH_TARGETS_RAW:?SSH_TARGETS (or SSH_TARGET) is required (example: Netbird Main=100.124.161.192:22,Backup=10.0.0.5:22)}"
+DNS_PROBE_TARGET="${DNS_PROBE_TARGET:-1.1.1.1:53}"
 
 SSH_STATIC_CONFIGS_FILE="/tmp/ssh_static_configs.yml"
 : > "${SSH_STATIC_CONFIGS_FILE}"
@@ -49,7 +50,8 @@ awk '
     next
   }
   { print }
-' cfg="${SSH_STATIC_CONFIGS_FILE}" /etc/prometheus/prometheus.yml.tmpl > /tmp/prometheus.yml
+' cfg="${SSH_STATIC_CONFIGS_FILE}" /etc/prometheus/prometheus.yml.tmpl \
+  | sed "s|__DNS_PROBE_TARGET__|${DNS_PROBE_TARGET}|g" > /tmp/prometheus.yml
 
 cp /etc/prometheus/alert.rules.yml.tmpl /tmp/alert.rules.yml
 
