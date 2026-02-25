@@ -26,7 +26,7 @@ __SSH_STATIC_CONFIGS__
         target_label: instance
         replacement: $1
       - target_label: __address__
-        replacement: blackbox:9115
+        replacement: __BLACKBOX_ADDRESS__
 
   - job_name: "blackbox_duckdns_https"
     metrics_path: /probe
@@ -40,7 +40,7 @@ __SSH_STATIC_CONFIGS__
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: blackbox:9115
+        replacement: __BLACKBOX_ADDRESS__
 
   - job_name: "blackbox_duckdns_dns"
     metrics_path: /probe
@@ -56,7 +56,7 @@ __SSH_STATIC_CONFIGS__
       - source_labels: [instance]
         target_label: instance
       - target_label: __address__
-        replacement: blackbox:9115
+        replacement: __BLACKBOX_ADDRESS__
 
 alerting:
   alertmanagers:

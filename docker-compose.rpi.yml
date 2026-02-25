@@ -1,0 +1,4 @@
+services:
+  blackbox:
+    network_mode: host
+    ports: []
